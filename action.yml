@@ -1,5 +1,5 @@
 ---
-name: NetBird Connect
+name: NetBird Ephemeral Peer
 description: Join a NetBird network as an ephemeral peer for the rest of the job.
 author: DonQuinleone
 
@@ -50,7 +50,7 @@ runs:
       if: runner.os != 'Linux'
       shell: bash
       run: |
-        echo "::error::NetBird Connect runs on Linux runners only."
+        echo "::error::NetBird Ephemeral Peer runs on Linux runners only."
         exit 1
 
     - name: Install NetBird

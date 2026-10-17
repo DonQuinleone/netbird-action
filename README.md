@@ -1,4 +1,4 @@
-# NetBird Connect
+# NetBird Ephemeral Peer
 
 A GitHub Action that joins a Linux runner to a [NetBird](https://netbird.io) network as an ephemeral peer, so later steps can reach private hosts.
 
