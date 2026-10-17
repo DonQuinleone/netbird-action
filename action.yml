@@ -1,0 +1,63 @@
+---
+name: NetBird Connect
+description: Join a NetBird network as an ephemeral peer for the rest of the job.
+author: DonQuinleone
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  setup-key:
+    description: An ephemeral, reusable setup key.
+    required: true
+  management-url:
+    description: The management server URL. Masked in the log.
+    required: true
+  hostname:
+    description: The peer's name in NetBird.
+    required: false
+    default: gh-${{ github.event.repository.name }}-${{ github.run_id }}-${{ github.run_attempt }}
+  wait-for:
+    description: A host:port to wait for before the step ends. Without it, the step waits for the management connection.
+    required: false
+    default: ""
+  timeout:
+    description: Seconds to wait for the connection.
+    required: false
+    default: "60"
+  version:
+    description: The NetBird release to install. Defaults to the release this action pins.
+    required: false
+    default: ""
+  checksum:
+    description: The release tarball's SHA-256. Required with any version but the default.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Check the runner
+      if: runner.os != 'Linux'
+      shell: bash
+      run: |
+        echo "::error::NetBird Connect runs on Linux runners only."
+        exit 1
+
+    - name: Install NetBird
+      shell: bash
+      env:
+        NB_VERSION: ${{ inputs.version }}
+        NB_CHECKSUM: ${{ inputs.checksum }}
+      run: ${{ github.action_path }}/scripts/install.sh
+
+    - name: Connect
+      shell: bash
+      env:
+        NB_SETUP_KEY: ${{ inputs.setup-key }}
+        NB_MANAGEMENT_URL: ${{ inputs.management-url }}
+        NB_HOSTNAME: ${{ inputs.hostname }}
+        WAIT_FOR: ${{ inputs.wait-for }}
+        TIMEOUT: ${{ inputs.timeout }}
+      run: ${{ github.action_path }}/scripts/connect.sh
