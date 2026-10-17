@@ -12,7 +12,7 @@ inputs:
     description: An ephemeral, reusable setup key.
     required: true
   management-url:
-    description: The management server URL. Masked in the log.
+    description: The management server URL, as https://host or https://host:port. Masked in the log.
     required: true
   hostname:
     description: The peer's name in NetBird.
@@ -50,7 +50,7 @@ runs:
       env:
         NB_VERSION: ${{ inputs.version }}
         NB_CHECKSUM: ${{ inputs.checksum }}
-      run: ${{ github.action_path }}/scripts/install.sh
+      run: '"${{ github.action_path }}/scripts/install.sh"'
 
     - name: Connect
       shell: bash
@@ -60,4 +60,4 @@ runs:
         NB_HOSTNAME: ${{ inputs.hostname }}
         WAIT_FOR: ${{ inputs.wait-for }}
         TIMEOUT: ${{ inputs.timeout }}
-      run: ${{ github.action_path }}/scripts/connect.sh
+      run: '"${{ github.action_path }}/scripts/connect.sh"'

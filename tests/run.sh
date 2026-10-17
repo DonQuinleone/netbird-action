@@ -38,6 +38,7 @@ if [ "${1:-}" = status ]; then echo "Management: ${STUB_MANAGEMENT:-Connected}";
 EOF
   cat >"$bin/timeout" <<'EOF'
 #!/usr/bin/env bash
+echo "timeout $*" >>"$CALLS"
 [ "${STUB_REACHABLE:-yes}" = yes ]
 EOF
   cat >"$bin/sleep" <<'EOF'
@@ -114,9 +115,31 @@ check "connect fails without a setup key" t_requires_setup_key
 t_masks_url_and_host() {
   run NB_SETUP_KEY=secret-key NB_MANAGEMENT_URL=https://nb.example.com:443 bash "$connect_sh" || return 1
   grep -qx '::add-mask::https://nb.example.com:443' "$work/out" &&
-    grep -qx '::add-mask::nb.example.com' "$work/out"
+    grep -qx '::add-mask::nb.example.com' "$work/out" &&
+    grep -qx '::add-mask::secret-key' "$work/out"
 }
-check "connect masks the management URL and its host" t_masks_url_and_host
+check "connect masks the setup key, the management URL and its host" t_masks_url_and_host
+
+t_requires_url_scheme() {
+  run NB_SETUP_KEY=k NB_MANAGEMENT_URL=nb.example.com bash "$connect_sh" && return 1
+  grep -q 'https://' "$work/out" && ! grep -q '^netbird up' "$work/calls"
+}
+check "connect rejects a management URL without http or https" t_requires_url_scheme
+
+t_rejects_bad_wait_for() {
+  local value
+  for value in '192.0.2.1' 'x;touch pwned:1' '192.0.2.1:http'; do
+    run NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com WAIT_FOR="$value" bash "$connect_sh" && return 1
+    { grep -q 'wait-for' "$work/out" && ! grep -q '^netbird up' "$work/calls"; } || return 1
+  done
+}
+check "connect rejects a wait-for that is not host:port" t_rejects_bad_wait_for
+
+t_rejects_bad_timeout() {
+  run NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com TIMEOUT='1+1' bash "$connect_sh" && return 1
+  grep -q 'timeout' "$work/out" && ! grep -q '^netbird up' "$work/calls"
+}
+check "connect rejects a timeout that is not a whole number" t_rejects_bad_timeout
 
 t_key_stays_off_argv() {
   run NB_SETUP_KEY=secret-key NB_MANAGEMENT_URL=https://nb.example.com bash "$connect_sh" || return 1
@@ -126,9 +149,11 @@ t_key_stays_off_argv() {
 check "connect passes the key through the environment, not the command line" t_key_stays_off_argv
 
 t_waits_for_target() {
-  run NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com WAIT_FOR=192.0.2.1:8081 TIMEOUT=3 bash "$connect_sh"
+  run NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com WAIT_FOR=192.0.2.1:8081 TIMEOUT=3 bash "$connect_sh" || return 1
+  grep -q '^timeout 2 bash -c .*/dev/tcp/.* 192.0.2.1 8081$' "$work/calls" &&
+    ! grep -q '/dev/tcp/192.0.2.1' "$work/calls"
 }
-check "connect succeeds once the wait-for target answers" t_waits_for_target
+check "connect probes the wait-for host and port as arguments, then succeeds" t_waits_for_target
 
 t_times_out() {
   run STUB_REACHABLE=no NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com WAIT_FOR=192.0.2.1:8081 TIMEOUT=3 bash "$connect_sh" && return 1
