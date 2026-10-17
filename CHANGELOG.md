@@ -2,6 +2,13 @@
 
 All notable changes to this project are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [semantic versioning](https://semver.org/).
 
+## [1.0.1] - 2026-10-17
+
+### Changed
+
+- Renamed to NetBird Ephemeral Peer, so the action can be listed on the GitHub Marketplace; "NetBird Connect" was taken.
+- Bump pull requests carry a commit signed by GitHub and run the tests without being reopened.
+
 ## [1.0.0] - 2026-10-17
 
 ### Added
@@ -18,4 +25,5 @@ All notable changes to this project are documented here. The format follows [Kee
 - By default the runner keeps its own DNS and routes, accepts no inbound connections and routes for no other peer. A nameserver group or route that the runner cannot reach would otherwise break its name resolution.
 - Every input is validated before NetBird starts.
 
+[1.0.1]: https://github.com/DonQuinleone/netbird-action/releases/tag/v1.0.1
 [1.0.0]: https://github.com/DonQuinleone/netbird-action/releases/tag/v1.0.0
