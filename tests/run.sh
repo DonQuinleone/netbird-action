@@ -223,5 +223,55 @@ t_bump_rejects_missing_checksum() {
 }
 check "bump refuses a checksums file without both tarballs" t_bump_rejects_missing_checksum
 
+open_pr_sh=$root/scripts/open-pr.sh
+base_sha=$(printf 'd%.0s' {1..40})
+
+open_pr() {
+  local bin=$work/gh-bin
+  rm -rf "$bin" && mkdir -p "$bin"
+  cat >"$bin/gh" <<'EOF'
+#!/usr/bin/env bash
+echo "gh $*" >>"$CALLS"
+case "$*" in
+  "api repos/"*"/git/ref/heads/"*) [ "${STUB_BRANCH_EXISTS:-no}" = yes ] ;;
+  "api graphql --input -") cat >"$GRAPHQL" ;;
+esac
+EOF
+  chmod +x "$bin/gh"
+  : >"$work/calls"
+  : >"$work/graphql.json"
+  env -i PATH="$bin:$(dirname "$(command -v jq)"):/usr/bin:/bin" CALLS="$work/calls" GRAPHQL="$work/graphql.json" \
+    GITHUB_REPOSITORY=example/netbird-action BASE_SHA="$base_sha" "$@" bash "$open_pr_sh" 9.8.7 >"$work/out" 2>&1
+}
+
+t_open_pr_signed_commit() {
+  open_pr || return 1
+  local expected_calls
+  expected_calls=$(printf '%s\n' \
+    "gh api repos/example/netbird-action/git/ref/heads/bump/netbird-9.8.7" \
+    "gh api --method POST repos/example/netbird-action/git/refs -f ref=refs/heads/bump/netbird-9.8.7 -f sha=$base_sha" \
+    "gh api graphql --input -" \
+    "gh workflow run test.yml --ref bump/netbird-9.8.7")
+  [ "$(head -4 "$work/calls")" = "$expected_calls" ] &&
+    grep -q '^gh pr create --base master --head bump/netbird-9.8.7 --title build: pin NetBird 9.8.7 ' "$work/calls" &&
+    [ "$(jq -r .variables.input.expectedHeadOid "$work/graphql.json")" = "$base_sha" ] &&
+    [ "$(jq -r .variables.input.branch.branchName "$work/graphql.json")" = "bump/netbird-9.8.7" ] &&
+    [ "$(jq -r .variables.input.fileChanges.additions[0].path "$work/graphql.json")" = "scripts/install.sh" ] &&
+    jq -r .variables.input.fileChanges.additions[0].contents "$work/graphql.json" | base64 --decode | cmp -s - "$install_sh"
+}
+check "open-pr commits install.sh through the signed API, runs the tests and opens the PR" t_open_pr_signed_commit
+
+t_open_pr_skips_existing_branch() {
+  open_pr STUB_BRANCH_EXISTS=yes || return 1
+  [ "$(wc -l <"$work/calls" | tr -d ' ')" = 1 ] && grep -q 'already exists' "$work/out"
+}
+check "open-pr does nothing when the bump branch already exists" t_open_pr_skips_existing_branch
+
+t_open_pr_rejects_bad_version() {
+  env -i PATH=/usr/bin:/bin GITHUB_REPOSITORY=example/netbird-action bash "$open_pr_sh" 'v9.8.7' >"$work/out" 2>&1 && return 1
+  grep -q 'x.y.z' "$work/out"
+}
+check "open-pr rejects a version that is not x.y.z" t_open_pr_rejects_bad_version
+
 echo "$passed passed, $failed failed"
 [ "$failed" -eq 0 ]

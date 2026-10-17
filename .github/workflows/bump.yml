@@ -7,6 +7,7 @@ name: Bump NetBird
   workflow_dispatch:
 
 permissions:
+  actions: write
   contents: write
   pull-requests: write
 
@@ -73,17 +74,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.latest.outputs.version }}
-        run: |
-          branch="bump/netbird-$VERSION"
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
-            echo "$branch already exists"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git switch -c "$branch"
-          git commit --all --message "build: pin NetBird $VERSION"
-          git push origin "$branch"
-          gh pr create --base master --head "$branch" \
-            --title "build: pin NetBird $VERSION" \
-            --body "Pins [NetBird $VERSION](https://github.com/netbirdio/netbird/releases/tag/v$VERSION). Both tarballs were downloaded and matched the release's checksums file, and the tests passed."
+        run: scripts/open-pr.sh "$VERSION"
