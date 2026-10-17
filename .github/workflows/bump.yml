@@ -1,0 +1,89 @@
+---
+name: Bump NetBird
+
+"on":
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Find the latest release
+        id: latest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh api repos/netbirdio/netbird/releases/latest --jq .tag_name)
+          version=${tag#v}
+          if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Latest release tag '$tag' is not vX.Y.Z."
+            exit 1
+          fi
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Pin it
+        id: pin
+        env:
+          VERSION: ${{ steps.latest.outputs.version }}
+        run: |
+          base="https://github.com/netbirdio/netbird/releases/download/v$VERSION"
+          curl --fail --silent --show-error --location --retry 3 \
+            --output "$RUNNER_TEMP/checksums.txt" "$base/netbird_${VERSION}_checksums.txt"
+          scripts/bump.sh "$VERSION" "$RUNNER_TEMP/checksums.txt"
+          if git diff --quiet; then
+            echo "changed=false" >>"$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >>"$GITHUB_OUTPUT"
+          fi
+
+      - name: Check the tarballs match their checksums
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          VERSION: ${{ steps.latest.outputs.version }}
+        working-directory: ${{ runner.temp }}
+        run: |
+          base="https://github.com/netbirdio/netbird/releases/download/v$VERSION"
+          for arch in amd64 arm64; do
+            curl --fail --silent --show-error --location --retry 3 --remote-name \
+              "$base/netbird_${VERSION}_linux_${arch}.tar.gz"
+          done
+          grep -E "  netbird_${VERSION//./\\.}_linux_(amd64|arm64)\.tar\.gz$" checksums.txt | sha256sum --check
+
+      - name: Test
+        if: steps.pin.outputs.changed == 'true'
+        run: |
+          shellcheck scripts/*.sh tests/run.sh
+          tests/run.sh
+
+      - name: Open a pull request
+        if: steps.pin.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.latest.outputs.version }}
+        run: |
+          branch="bump/netbird-$VERSION"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+            echo "$branch already exists"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$branch"
+          git commit --all --message "build: pin NetBird $VERSION"
+          git push origin "$branch"
+          gh pr create --base master --head "$branch" \
+            --title "build: pin NetBird $VERSION" \
+            --body "Pins [NetBird $VERSION](https://github.com/netbirdio/netbird/releases/tag/v$VERSION). Both tarballs were downloaded and matched the release's checksums file, and the tests passed."
