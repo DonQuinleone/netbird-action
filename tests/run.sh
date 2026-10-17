@@ -33,7 +33,7 @@ echo "install $*" >>"$CALLS"
 EOF
   cat >"$bin/netbird" <<'EOF'
 #!/usr/bin/env bash
-echo "netbird $* key=${NB_SETUP_KEY:-} url=${NB_MANAGEMENT_URL:-}" >>"$CALLS"
+echo "netbird $* key=${NB_SETUP_KEY:-} url=${NB_MANAGEMENT_URL:-} dns=${NB_DISABLE_DNS:-} routes=${NB_DISABLE_CLIENT_ROUTES:-} server=${NB_DISABLE_SERVER_ROUTES:-} inbound=${NB_BLOCK_INBOUND:-}" >>"$CALLS"
 if [ "${1:-}" = status ]; then echo "Management: ${STUB_MANAGEMENT:-Connected}"; fi
 EOF
   cat >"$bin/timeout" <<'EOF'
@@ -140,6 +140,24 @@ t_rejects_bad_timeout() {
   grep -q 'timeout' "$work/out" && ! grep -q '^netbird up' "$work/calls"
 }
 check "connect rejects a timeout that is not a whole number" t_rejects_bad_timeout
+
+t_isolates_by_default() {
+  run NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com bash "$connect_sh" || return 1
+  grep -q '^netbird up .* dns=true routes=true server=true inbound=true$' "$work/calls"
+}
+check "connect leaves DNS and routes alone and blocks inbound by default" t_isolates_by_default
+
+t_accepts_dns_and_routes() {
+  run ACCEPT_DNS=true ACCEPT_ROUTES=true NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com bash "$connect_sh" || return 1
+  grep -q '^netbird up .* dns=false routes=false server=true inbound=true$' "$work/calls"
+}
+check "connect takes NetBird DNS and routes when asked" t_accepts_dns_and_routes
+
+t_rejects_bad_boolean() {
+  run ACCEPT_DNS=yes NB_SETUP_KEY=k NB_MANAGEMENT_URL=https://nb.example.com bash "$connect_sh" && return 1
+  grep -q 'accept-dns' "$work/out" && ! grep -q '^netbird up' "$work/calls"
+}
+check "connect rejects an accept-dns that is not true or false" t_rejects_bad_boolean
 
 t_key_stays_off_argv() {
   run NB_SETUP_KEY=secret-key NB_MANAGEMENT_URL=https://nb.example.com bash "$connect_sh" || return 1

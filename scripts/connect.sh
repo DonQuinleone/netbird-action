@@ -25,10 +25,22 @@ if [ -n "${WAIT_FOR:-}" ]; then
   target_port=${BASH_REMATCH[2]}
 fi
 
-export NB_SETUP_KEY NB_MANAGEMENT_URL NB_HOSTNAME
+negate() {
+  case $2 in
+    true) echo false ;;
+    false) echo true ;;
+    *) fail "The $1 input must be true or false." ;;
+  esac
+}
+NB_DISABLE_DNS=$(negate accept-dns "${ACCEPT_DNS:-false}")
+NB_DISABLE_CLIENT_ROUTES=$(negate accept-routes "${ACCEPT_ROUTES:-false}")
+NB_DISABLE_SERVER_ROUTES=true
+NB_BLOCK_INBOUND=true
+
+export NB_SETUP_KEY NB_MANAGEMENT_URL NB_HOSTNAME NB_DISABLE_DNS NB_DISABLE_CLIENT_ROUTES NB_DISABLE_SERVER_ROUTES NB_BLOCK_INBOUND
 sudo netbird service install
 sudo netbird service start
-sudo --preserve-env=NB_SETUP_KEY,NB_MANAGEMENT_URL,NB_HOSTNAME netbird up
+sudo --preserve-env=NB_SETUP_KEY,NB_MANAGEMENT_URL,NB_HOSTNAME,NB_DISABLE_DNS,NB_DISABLE_CLIENT_ROUTES,NB_DISABLE_SERVER_ROUTES,NB_BLOCK_INBOUND netbird up
 
 management_connected() {
   sudo netbird status 2>/dev/null | grep -q 'Management: Connected'

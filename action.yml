@@ -22,6 +22,14 @@ inputs:
     description: A host:port to wait for before the step ends. Without it, the step waits for the management connection.
     required: false
     default: ""
+  accept-dns:
+    description: Let NetBird manage the runner's DNS. Off by default, so a nameserver the runner cannot reach does not break name resolution.
+    required: false
+    default: "false"
+  accept-routes:
+    description: Install the network routes NetBird distributes. Off by default.
+    required: false
+    default: "false"
   timeout:
     description: Seconds to wait for the connection.
     required: false
@@ -60,4 +68,6 @@ runs:
         NB_HOSTNAME: ${{ inputs.hostname }}
         WAIT_FOR: ${{ inputs.wait-for }}
         TIMEOUT: ${{ inputs.timeout }}
+        ACCEPT_DNS: ${{ inputs.accept-dns }}
+        ACCEPT_ROUTES: ${{ inputs.accept-routes }}
       run: '"${{ github.action_path }}/scripts/connect.sh"'

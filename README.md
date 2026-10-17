@@ -6,6 +6,8 @@ A GitHub Action that joins a Linux runner to a [NetBird](https://netbird.io) net
 
 It installs a pinned NetBird release, checks its SHA-256, and connects with a setup key passed through the environment. The management URL is masked in the log.
 
+By default the runner keeps its own DNS and routes, accepts no inbound connections and routes for no one, so reach private hosts by their NetBird IP.
+
 ## Usage
 
 ```yaml
@@ -22,6 +24,8 @@ It installs a pinned NetBird release, checks its SHA-256, and connects with a se
 | `management-url` | yes | |
 | `hostname` | no | `gh-<repo>-<run id>-<attempt>` |
 | `wait-for` | no | waits for the management connection |
+| `accept-dns` | no | `false` |
+| `accept-routes` | no | `false` |
 | `timeout` | no | `60` seconds |
 | `version` | no | the pinned release |
 | `checksum` | with `version` | |
