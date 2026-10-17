@@ -185,5 +185,43 @@ t_waits_for_management() {
 }
 check "connect fails when management never connects" t_waits_for_management
 
+bump_sh=$root/scripts/bump.sh
+amd64_sum=$(printf 'a%.0s' {1..64})
+arm64_sum=$(printf 'b%.0s' {1..64})
+
+bump() {
+  cp "$install_sh" "$work/install.sh"
+  printf '%s  netbird_9.8.7_linux_amd64.tar.gz\n%s  netbird_9.8.7_linux_arm64.tar.gz\n%s  netbird_9.8.7_linux_amd64.deb\n' \
+    "$amd64_sum" "$arm64_sum" "$(printf 'c%.0s' {1..64})" >"$work/checksums.txt"
+  : >"$work/calls"
+  env -i PATH=/usr/bin:/bin INSTALL_SH="$work/install.sh" bash "$bump_sh" "$@" >"$work/out" 2>&1
+}
+
+t_bump_updates_pins() {
+  bump 9.8.7 "$work/checksums.txt" || return 1
+  grep -qx 'readonly DEFAULT_VERSION=9.8.7' "$work/install.sh" &&
+    grep -qx "readonly DEFAULT_SHA256_AMD64=$amd64_sum" "$work/install.sh" &&
+    grep -qx "readonly DEFAULT_SHA256_ARM64=$arm64_sum" "$work/install.sh"
+}
+check "bump pins the new version and both tarball checksums" t_bump_updates_pins
+
+t_bump_rejects_bad_version() {
+  local value
+  for value in latest v9.8.7 '9.8.7; rm -rf /'; do
+    bump "$value" "$work/checksums.txt" && return 1
+    cmp -s "$install_sh" "$work/install.sh" || return 1
+  done
+}
+check "bump rejects a version that is not x.y.z and leaves install.sh alone" t_bump_rejects_bad_version
+
+t_bump_rejects_missing_checksum() {
+  bump 9.8.7 "$work/checksums.txt" >/dev/null
+  cp "$install_sh" "$work/install.sh"
+  grep -v arm64 "$work/checksums.txt" >"$work/partial.txt"
+  env -i PATH=/usr/bin:/bin INSTALL_SH="$work/install.sh" bash "$bump_sh" 9.8.7 "$work/partial.txt" >"$work/out" 2>&1 && return 1
+  grep -q 'arm64' "$work/out" && cmp -s "$install_sh" "$work/install.sh"
+}
+check "bump refuses a checksums file without both tarballs" t_bump_rejects_missing_checksum
+
 echo "$passed passed, $failed failed"
 [ "$failed" -eq 0 ]
