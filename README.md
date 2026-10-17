@@ -43,3 +43,7 @@ Use GitHub-hosted runners only. On a self-hosted runner the peer stays connected
 ```bash
 tests/run.sh
 ```
+
+## Licence
+
+MIT. See [LICENSE](LICENSE).
