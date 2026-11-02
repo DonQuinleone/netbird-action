@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-readonly DEFAULT_VERSION=0.81.2
-readonly DEFAULT_SHA256_AMD64=a3a5f97d67c8854b33aa562c0bf2244430f07c724cde5ab522f211b49c75c354
-readonly DEFAULT_SHA256_ARM64=8152afcc5b5609463d304f8c5ce835fa0d645cc745b0b689c19b1cc4acd1197c
+readonly DEFAULT_VERSION=0.82.0
+readonly DEFAULT_SHA256_AMD64=b569f65de303d21317bc716f3116002e2cf175ae22a9f6d2bed91200a2f5000b
+readonly DEFAULT_SHA256_ARM64=c2e5ccb5824cb29fe008a5a54854fd5926b89d3aaff7ab8721f77abf8e8b3e62
 
 fail() {
   echo "::error::$1" >&2
